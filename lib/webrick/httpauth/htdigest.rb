@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpauth/htdigest.rb -- Apache compatible htdigest file
 #
@@ -38,9 +37,9 @@ module WEBrick
         @path = path
         @mtime = Time.at(0)
         @digest = Hash.new
-        @mutex = Thread::Mutex::new
+        @mutex = Mutex::new
         @auth_type = DigestAuth
-        File.open(@path,"a").close unless File.exist?(@path)
+        open(@path,"a").close unless File::exist?(@path)
         reload
       end
 
@@ -51,7 +50,7 @@ module WEBrick
         mtime = File::mtime(@path)
         if mtime > @mtime
           @digest.clear
-          File.open(@path){|io|
+          open(@path){|io|
             while line = io.gets
               line.chomp!
               user, realm, pass = line.split(/:/, 3)
@@ -71,16 +70,13 @@ module WEBrick
 
       def flush(output=nil)
         output ||= @path
-        tmp = Tempfile.create("htpasswd", File::dirname(output))
-        renamed = false
+        tmp = Tempfile.new("htpasswd", File::dirname(output))
         begin
           each{|item| tmp.puts(item.join(":")) }
           tmp.close
           File::rename(tmp.path, output)
-          renamed = true
-        ensure
-          tmp.close
-          File.unlink(tmp.path) if !renamed
+        rescue
+          tmp.close(true)
         end
       end
 

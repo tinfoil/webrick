@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpauth/basicauth.rb -- HTTP basic access authentication
 #
@@ -24,7 +23,7 @@ module WEBrick
     #
     #   config = { :Realm => 'BasicAuth example realm' }
     #
-    #   htpasswd = WEBrick::HTTPAuth::Htpasswd.new 'my_password_file', password_hash: :bcrypt
+    #   htpasswd = WEBrick::HTTPAuth::Htpasswd.new 'my_password_file'
     #   htpasswd.set_passwd config[:Realm], 'username', 'password'
     #   htpasswd.flush
     #
@@ -35,7 +34,7 @@ module WEBrick
     class BasicAuth
       include Authenticator
 
-      AuthScheme = "Basic" # :nodoc:
+      AuthScheme = "Basic"
 
       ##
       # Used by UserDB to create a basic password entry
@@ -81,15 +80,7 @@ module WEBrick
           error("%s: the user is not allowed.", userid)
           challenge(req, res)
         end
-
-        case encpass
-        when /\A\$2[aby]\$/
-          password_matches = BCrypt::Password.new(encpass.sub(/\A\$2[aby]\$/, '$2a$')) == password
-        else
-          password_matches = password.crypt(encpass) == encpass
-        end
-
-        unless password_matches
+        if password.crypt(encpass) != encpass
           error("%s: password unmatch.", userid)
           challenge(req, res)
         end
@@ -98,7 +89,8 @@ module WEBrick
       end
 
       ##
-      # Returns a challenge response which asks for authentication information
+      # Returns a challenge response which asks for for authentication
+      # information
 
       def challenge(req, res)
         res[@response_field] = "#{@auth_scheme} realm=\"#{@realm}\""

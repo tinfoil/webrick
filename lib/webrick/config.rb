@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # config.rb -- Default configurations.
 #
@@ -17,17 +16,11 @@ require 'webrick/log'
 
 module WEBrick
   module Config
-    LIBDIR = File::dirname(__FILE__) # :nodoc:
+    LIBDIR = File::dirname(__FILE__)
 
     # for GenericServer
-    General = Hash.new { |hash, key|
-      case key
-      when :ServerName
-        hash[key] = Utils.getservername
-      else
-        nil
-      end
-    }.update(
+    General = {
+      :ServerName     => Utils::getservername,
       :BindAddress    => nil,   # "0.0.0.0" or "::" or nil
       :Port           => nil,   # users MUST specify this!!
       :MaxClients     => 100,   # maximum number of the concurrent connections
@@ -40,9 +33,9 @@ module WEBrick
       :StartCallback  => nil,
       :StopCallback   => nil,
       :AcceptCallback => nil,
-      :DoNotReverseLookup => true,
+      :DoNotReverseLookup => nil,
       :ShutdownSocketWithoutClose => false,
-    )
+    }
 
     # for HTTPServer, HTTPRequest, HTTPResponse ...
     HTTP = General.dup.update(
@@ -74,30 +67,6 @@ module WEBrick
       :Escape8bitURI  => false
     )
 
-    ##
-    # Default configuration for WEBrick::HTTPServlet::FileHandler
-    #
-    # :AcceptableLanguages::
-    #   Array of languages allowed for accept-language.  There is no default
-    # :DirectoryCallback::
-    #   Allows preprocessing of directory requests.  There is no default
-    #   callback.
-    # :FancyIndexing::
-    #   If true, show an index for directories.  The default is true.
-    # :FileCallback::
-    #   Allows preprocessing of file requests.  There is no default callback.
-    # :HandlerCallback::
-    #   Allows preprocessing of requests.  There is no default callback.
-    # :HandlerTable::
-    #   Maps file suffixes to file handlers.  DefaultFileHandler is used by
-    #   default but any servlet can be used.
-    # :NondisclosureName::
-    #   Do not show files matching this array of globs.  .ht* and *~ are
-    #   excluded by default.
-    # :UserDir::
-    #   Directory inside ~user to serve content from for /~user requests.
-    #   Only works if mounted on /.  Disabled by default.
-
     FileHandler = {
       :NondisclosureName => [".ht*", "*~"],
       :FancyIndexing     => false,
@@ -108,12 +77,6 @@ module WEBrick
       :UserDir           => nil,  # e.g. "public_html"
       :AcceptableLanguages => []  # ["en", "ja", ... ]
     }
-
-    ##
-    # Default configuration for WEBrick::HTTPAuth::BasicAuth
-    #
-    # :AutoReloadUserDB:: Reload the user database provided by :UserDB
-    #                     automatically?
 
     BasicAuth = {
       :AutoReloadUserDB     => true,

@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # cgihandler.rb -- CGIHandler Class
 #
@@ -17,20 +16,9 @@ require 'webrick/httpservlet/abstract'
 module WEBrick
   module HTTPServlet
 
-    ##
-    # Servlet for handling CGI scripts
-    #
-    # Example:
-    #
-    #  server.mount('/cgi/my_script', WEBrick::HTTPServlet::CGIHandler,
-    #               '/path/to/my_script')
-
     class CGIHandler < AbstractServlet
-      Ruby = RbConfig.ruby # :nodoc:
-      CGIRunner = "\"#{Ruby}\" \"#{WEBrick::Config::LIBDIR}/httpservlet/cgi_runner.rb\"" # :nodoc:
-
-      ##
-      # Creates a new CGI script servlet for the script at +name+
+      Ruby = RbConfig.ruby
+      CGIRunner = "\"#{Ruby}\" \"#{WEBrick::Config::LIBDIR}/httpservlet/cgi_runner.rb\""
 
       def initialize(server, name)
         super(server, name)
@@ -39,9 +27,10 @@ module WEBrick
         @cgicmd = "#{CGIRunner} #{server[:CGIInterpreter]}"
       end
 
-      # :stopdoc:
-
       def do_GET(req, res)
+        data = nil
+        status = -1
+
         cgi_in = IO::popen(@cgicmd, "wb")
         cgi_out = Tempfile.new("webrick.cgiout.", @tempdir, mode: IO::BINARY)
         cgi_out.set_encoding("ASCII-8BIT")
@@ -52,7 +41,6 @@ module WEBrick
           meta = req.meta_vars
           meta["SCRIPT_FILENAME"] = @script_filename
           meta["PATH"] = @config[:CGIPathEnv]
-          meta.delete("HTTP_PROXY")
           if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
             meta["SystemRoot"] = ENV["SystemRoot"]
           end
@@ -65,7 +53,9 @@ module WEBrick
           cgi_in.write("%8d" % dump.bytesize)
           cgi_in.write(dump)
 
-          req.body { |chunk| cgi_in.write(chunk) }
+          if req.body and req.body.bytesize > 0
+            cgi_in.write(req.body)
+          end
         ensure
           cgi_in.close
           status = $?.exitstatus
@@ -112,8 +102,6 @@ module WEBrick
         res.body = body
       end
       alias do_POST do_GET
-
-      # :startdoc:
     end
 
   end

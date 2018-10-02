@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpservlet.rb -- HTTPServlet Module
 #
@@ -8,6 +7,8 @@
 # reserved.
 #
 # $IPR: abstract.rb,v 1.24 2003/07/11 11:16:46 gotoyuzo Exp $
+
+require 'thread'
 
 require 'webrick/htmlutils'
 require 'webrick/httputils'
@@ -53,7 +54,7 @@ module WEBrick
     # Servlets can be configured via initialize.  The first argument is the
     # HTTP server the servlet is being initialized for.
     #
-    #  class Configurable < Simple
+    #  class Configureable < Simple
     #    def initialize server, color, size
     #      super server
     #      @color = color

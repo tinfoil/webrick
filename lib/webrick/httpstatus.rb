@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #--
 # httpstatus.rb -- HTTPStatus Class
 #
@@ -8,8 +7,6 @@
 # reserved.
 #
 # $IPR: httpstatus.rb,v 1.11 2003/03/24 20:18:55 gotoyuzo Exp $
-
-require 'webrick/accesslog'
 
 module WEBrick
 
@@ -23,22 +20,26 @@ module WEBrick
     ##
     # Root of the HTTP status class hierarchy
     class Status < StandardError
+      def initialize(*args) # :nodoc:
+        args[0] = AccessLog.escape(args[0]) unless args.empty?
+        super(*args)
+      end
       class << self
         attr_reader :code, :reason_phrase # :nodoc:
       end
-
+      
       # Returns the HTTP status code
       def code() self::class::code end
-
+      
       # Returns the HTTP status description
       def reason_phrase() self::class::reason_phrase end
-
+      
       alias to_i code # :nodoc:
     end
 
     # Root of the HTTP info statuses
     class Info        < Status; end
-    # Root of the HTTP success statuses
+    # Root of the HTTP sucess statuses
     class Success     < Status; end
     # Root of the HTTP redirect statuses
     class Redirect    < Status; end
@@ -62,7 +63,6 @@ module WEBrick
       204 => 'No Content',
       205 => 'Reset Content',
       206 => 'Partial Content',
-      207 => 'Multi-Status',
       300 => 'Multiple Choices',
       301 => 'Moved Permanently',
       302 => 'Found',
@@ -88,22 +88,12 @@ module WEBrick
       415 => 'Unsupported Media Type',
       416 => 'Request Range Not Satisfiable',
       417 => 'Expectation Failed',
-      422 => 'Unprocessable Entity',
-      423 => 'Locked',
-      424 => 'Failed Dependency',
-      426 => 'Upgrade Required',
-      428 => 'Precondition Required',
-      429 => 'Too Many Requests',
-      431 => 'Request Header Fields Too Large',
-      451 => 'Unavailable For Legal Reasons',
       500 => 'Internal Server Error',
       501 => 'Not Implemented',
       502 => 'Bad Gateway',
       503 => 'Service Unavailable',
       504 => 'Gateway Timeout',
-      505 => 'HTTP Version Not Supported',
-      507 => 'Insufficient Storage',
-      511 => 'Network Authentication Required',
+      505 => 'HTTP Version Not Supported'
     }
 
     # Maps a status code to the corresponding Status class
@@ -146,31 +136,31 @@ module WEBrick
     def info?(code)
       code.to_i >= 100 and code.to_i < 200
     end
-
+    
     ##
     # Is +code+ a successful status?
     def success?(code)
       code.to_i >= 200 and code.to_i < 300
     end
-
+    
     ##
     # Is +code+ a redirection status?
     def redirect?(code)
       code.to_i >= 300 and code.to_i < 400
     end
-
+    
     ##
     # Is +code+ an error status?
     def error?(code)
       code.to_i >= 400 and code.to_i < 600
     end
-
+    
     ##
     # Is +code+ a client error status?
     def client_error?(code)
       code.to_i >= 400 and code.to_i < 500
     end
-
+    
     ##
     # Is +code+ a server error status?
     def server_error?(code)

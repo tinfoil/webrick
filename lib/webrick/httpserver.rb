@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpserver.rb -- HTTPServer Class
 #
@@ -9,7 +8,6 @@
 #
 # $IPR: httpserver.rb,v 1.63 2002/10/01 17:16:32 gotoyuzo Exp $
 
-require 'io/wait'
 require 'webrick/server'
 require 'webrick/httputils'
 require 'webrick/httpstatus'
@@ -74,11 +72,11 @@ module WEBrick
         begin
           timeout = @config[:RequestTimeout]
           while timeout > 0
-            break if sock.to_io.wait_readable(0.5)
-            break if @status != :Running
+            break if IO.select([sock], nil, nil, 0.5)
+            timeout = 0 if @status != :Running
             timeout -= 0.5
           end
-          raise HTTPStatus::EOFError if timeout <= 0 || @status != :Running
+          raise HTTPStatus::EOFError if timeout <= 0
           raise HTTPStatus::EOFError if sock.eof?
           req.parse(sock)
           res.request_method = req.request_method
@@ -139,10 +137,6 @@ module WEBrick
       @logger.debug(format("%s is invoked.", si.class.name))
       si.service(req, res)
     end
-
-    ##
-    # The default OPTIONS request handler says GET, HEAD, POST and OPTIONS
-    # requests are allowed.
 
     def do_OPTIONS(req, res)
       res["allow"] = "GET,HEAD,POST,OPTIONS"
@@ -213,10 +207,6 @@ module WEBrick
       }
     end
 
-    ##
-    # Logs +req+ and +res+ in the access logs.  +config+ is used for the
-    # server name.
-
     def access_log(config, req, res)
       param = AccessLog::setup_params(config, req, res)
       @config[:AccessLog].each{|logger, fmt|
@@ -224,13 +214,7 @@ module WEBrick
       }
     end
 
-    ##
-    # Mount table for the path a servlet is mounted on in the directory space
-    # of the server.  Users of WEBrick can only access this indirectly via
-    # WEBrick::HTTPServer#mount, WEBrick::HTTPServer#unmount and
-    # WEBrick::HTTPServer#search_servlet
-
-    class MountTable # :nodoc:
+    class MountTable
       def initialize
         @tab = Hash.new
         compile
@@ -267,12 +251,12 @@ module WEBrick
         k.sort!
         k.reverse!
         k.collect!{|path| Regexp.escape(path) }
-        @scanner = Regexp.new("\\A(" + k.join("|") +")(?=/|\\z)")
+        @scanner = Regexp.new("^(" + k.join("|") +")(?=/|$)")
       end
 
       def normalize(dir)
         ret = dir ? dir.dup : ""
-        ret.sub!(%r|/+\z|, "")
+        ret.sub!(%r|/+$|, "")
         ret
       end
     end

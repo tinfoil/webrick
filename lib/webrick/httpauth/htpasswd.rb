@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpauth/htpasswd -- Apache compatible htpasswd file
 #
@@ -35,30 +34,12 @@ module WEBrick
       ##
       # Open a password database at +path+
 
-      def initialize(path, password_hash: nil)
+      def initialize(path)
         @path = path
         @mtime = Time.at(0)
         @passwd = Hash.new
         @auth_type = BasicAuth
-        @password_hash = password_hash
-
-        case @password_hash
-        when nil
-          # begin
-          #   require "string/crypt"
-          # rescue LoadError
-          #   warn("Unable to load string/crypt, proceeding with deprecated use of String#crypt, consider using password_hash: :bcrypt")
-          # end
-          @password_hash = :crypt
-        when :crypt
-          # require "string/crypt"
-        when :bcrypt
-          require "bcrypt"
-        else
-          raise ArgumentError, "only :crypt and :bcrypt are supported for password_hash keyword argument"
-        end
-
-        File.open(@path,"a").close unless File.exist?(@path)
+        open(@path,"a").close unless File::exist?(@path)
         reload
       end
 
@@ -69,19 +50,11 @@ module WEBrick
         mtime = File::mtime(@path)
         if mtime > @mtime
           @passwd.clear
-          File.open(@path){|io|
+          open(@path){|io|
             while line = io.gets
               line.chomp!
               case line
               when %r!\A[^:]+:[a-zA-Z0-9./]{13}\z!
-                if @password_hash == :bcrypt
-                  raise StandardError, ".htpasswd file contains crypt password, only bcrypt passwords supported"
-                end
-                user, pass = line.split(":")
-              when %r!\A[^:]+:\$2[aby]\$\d{2}\$.{53}\z!
-                if @password_hash == :crypt
-                  raise StandardError, ".htpasswd file contains bcrypt password, only crypt passwords supported"
-                end
                 user, pass = line.split(":")
               when /:\$/, /:{SHA}/
                 raise NotImplementedError,
@@ -102,16 +75,13 @@ module WEBrick
 
       def flush(output=nil)
         output ||= @path
-        tmp = Tempfile.create("htpasswd", File::dirname(output))
-        renamed = false
+        tmp = Tempfile.new("htpasswd", File::dirname(output))
         begin
           each{|item| tmp.puts(item.join(":")) }
           tmp.close
           File::rename(tmp.path, output)
-          renamed = true
-        ensure
-          tmp.close
-          File.unlink(tmp.path) if !renamed
+        rescue
+          tmp.close(true)
         end
       end
 
@@ -128,14 +98,7 @@ module WEBrick
       # Sets a password in the database for +user+ in +realm+ to +pass+.
 
       def set_passwd(realm, user, pass)
-        if @password_hash == :bcrypt
-          # Cost of 5 to match Apache default, and because the
-          # bcrypt default of 10 will introduce significant delays
-          # for every request.
-          @passwd[user] = BCrypt::Password.create(pass, :cost=>5)
-        else
-          @passwd[user] = make_passwd(realm, user, pass)
-        end
+        @passwd[user] = make_passwd(realm, user, pass)
       end
 
       ##

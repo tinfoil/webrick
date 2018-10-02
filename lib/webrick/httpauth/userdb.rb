@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #--
 # httpauth/userdb.rb -- UserDB mix-in module.
 #

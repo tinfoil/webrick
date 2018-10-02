@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #--
 # log.rb -- Log Class
 #
@@ -15,27 +14,8 @@ module WEBrick
   # A generic logging class
 
   class BasicLog
-
-    # Fatal log level which indicates a server crash
-
-    FATAL = 1
-
-    # Error log level which indicates a recoverable error
-
-    ERROR = 2
-
-    # Warning log level which indicates a possible problem
-
-    WARN  = 3
-
-    # Information log level which indicates possibly useful information
-
-    INFO  = 4
-
-    # Debugging error level for messages used in server development or
-    # debugging
-
-    DEBUG = 5
+    # log-level constants
+    FATAL, ERROR, WARN, INFO, DEBUG = 1, 2, 3, 4, 5
 
     # log-level, messages above this level will be logged
     attr_accessor :level
@@ -51,7 +31,7 @@ module WEBrick
       @level = level || INFO
       case log_file
       when String
-        @log = File.open(log_file, "a+")
+        @log = open(log_file, "a+")
         @log.sync = true
         @opened = true
       when NilClass
@@ -118,10 +98,10 @@ module WEBrick
     # * Otherwise it will return +arg+.inspect.
     def format(arg)
       if arg.is_a?(Exception)
-        "#{arg.class}: #{AccessLog.escape(arg.message)}\n\t" <<
+        "#{arg.class}: #{arg.message}\n\t" <<
         arg.backtrace.join("\n\t") << "\n"
       elsif arg.respond_to?(:to_str)
-        AccessLog.escape(arg.to_str)
+        arg.to_str
       else
         arg.inspect
       end

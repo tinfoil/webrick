@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #--
 # htmlutils.rb -- HTMLUtils Module
 #
@@ -16,13 +15,12 @@ module WEBrick
     # Escapes &, ", > and < in +string+
 
     def escape(string)
-      return "" unless string
-      str = string.b
+      str = string ? string.dup : ""
       str.gsub!(/&/n, '&amp;')
       str.gsub!(/\"/n, '&quot;')
       str.gsub!(/>/n, '&gt;')
       str.gsub!(/</n, '&lt;')
-      str.force_encoding(string.encoding)
+      str
     end
     module_function :escape
 

@@ -1,15 +1,9 @@
-# frozen_string_literal: false
 require "test/unit"
 require_relative "utils.rb"
 require "webrick"
 require "stringio"
 
 class WEBrick::TestFileHandler < Test::Unit::TestCase
-  def teardown
-    WEBrick::Utils::TimeoutHandler.terminate
-    super
-  end
-
   def default_file_handler(filename)
     klass = WEBrick::HTTPServlet::DefaultFileHandler
     klass.new(WEBrick::Config::HTTP, filename)
@@ -20,10 +14,11 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
   end
 
   def get_res_body(res)
-    sio = StringIO.new
-    sio.binmode
-    res.send_body(sio)
-    sio.string
+    if defined? res.body.read
+      res.body.read
+    else
+      res.body
+    end
   end
 
   def make_range_request(range_spec)
@@ -51,47 +46,30 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
 
     res = make_range_response(filename, "bytes=#{filesize-100}-")
     assert_match(%r{^text/plain}, res["content-type"])
-    assert_equal(100, get_res_body(res).size)
+    assert_equal(get_res_body(res).size, 100)
 
     res = make_range_response(filename, "bytes=-100")
     assert_match(%r{^text/plain}, res["content-type"])
-    assert_equal(100, get_res_body(res).size)
+    assert_equal(get_res_body(res).size, 100)
 
     res = make_range_response(filename, "bytes=0-99")
     assert_match(%r{^text/plain}, res["content-type"])
-    assert_equal(100, get_res_body(res).size)
+    assert_equal(get_res_body(res).size, 100)
 
     res = make_range_response(filename, "bytes=100-199")
     assert_match(%r{^text/plain}, res["content-type"])
-    assert_equal(100, get_res_body(res).size)
+    assert_equal(get_res_body(res).size, 100)
 
     res = make_range_response(filename, "bytes=0-0")
     assert_match(%r{^text/plain}, res["content-type"])
-    assert_equal(1, get_res_body(res).size)
+    assert_equal(get_res_body(res).size, 1)
 
     res = make_range_response(filename, "bytes=-1")
     assert_match(%r{^text/plain}, res["content-type"])
-    assert_equal(1, get_res_body(res).size)
+    assert_equal(get_res_body(res).size, 1)
 
     res = make_range_response(filename, "bytes=0-0, -2")
     assert_match(%r{^multipart/byteranges}, res["content-type"])
-    body = get_res_body(res)
-    boundary = /; boundary=(.+)/.match(res['content-type'])[1]
-    off = filesize - 2
-    last = filesize - 1
-
-    exp = "--#{boundary}\r\n" \
-          "Content-Type: text/plain\r\n" \
-          "Content-Range: bytes 0-0/#{filesize}\r\n" \
-          "\r\n" \
-          "#{IO.read(__FILE__, 1)}\r\n" \
-          "--#{boundary}\r\n" \
-          "Content-Type: text/plain\r\n" \
-          "Content-Range: bytes #{off}-#{last}/#{filesize}\r\n" \
-          "\r\n" \
-          "#{IO.read(__FILE__, 2, off)}\r\n" \
-          "--#{boundary}--\r\n"
-    assert_equal exp, body
   end
 
   def test_filehandler
@@ -182,13 +160,8 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
 
   def test_non_disclosure_name
     config = { :DocumentRoot => File.dirname(__FILE__), }
-    log_tester = lambda {|log, access_log|
-      log = log.reject {|s| /ERROR `.*\' not found\./ =~ s }
-      log = log.reject {|s| /WARN  the request refers nondisclosure name/ =~ s }
-      assert_equal([], log)
-    }
     this_file = File.basename(__FILE__)
-    TestWEBrick.start_httpserver(config, log_tester) do |server, addr, port, log|
+    TestWEBrick.start_httpserver(config) do |server, addr, port, log|
       http = Net::HTTP.new(addr, port)
       doc_root_opts = server[:DocumentRootOptions]
       doc_root_opts[:NondisclosureName] = %w(.ht* *~ test_*)
@@ -210,15 +183,9 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
   end
 
   def test_directory_traversal
-    return if File.executable?(__FILE__) # skip on strange file system
-
     config = { :DocumentRoot => File.dirname(__FILE__), }
-    log_tester = lambda {|log, access_log|
-      log = log.reject {|s| /ERROR bad URI/ =~ s }
-      log = log.reject {|s| /ERROR `.*\' not found\./ =~ s }
-      assert_equal([], log)
-    }
-    TestWEBrick.start_httpserver(config, log_tester) do |server, addr, port, log|
+    this_file = File.basename(__FILE__)
+    TestWEBrick.start_httpserver(config) do |server, addr, port, log|
       http = Net::HTTP.new(addr, port)
       req = Net::HTTP::Get.new("/../../")
       http.request(req){|res| assert_equal("400", res.code, log.call) }
@@ -232,6 +199,7 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
   def test_unwise_in_path
     if windows?
       config = { :DocumentRoot => File.dirname(__FILE__), }
+      this_file = File.basename(__FILE__)
       TestWEBrick.start_httpserver(config) do |server, addr, port, log|
         http = Net::HTTP.new(addr, port)
         req = Net::HTTP::Get.new("/..%5c..")
@@ -241,27 +209,17 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
   end
 
   def test_short_filename
-    return if File.executable?(__FILE__) # skip on strange file system
-
     config = {
       :CGIInterpreter => TestWEBrick::RubyBin,
       :DocumentRoot => File.dirname(__FILE__),
       :CGIPathEnv => ENV['PATH'],
     }
-    log_tester = lambda {|log, access_log|
-      log = log.reject {|s| /ERROR `.*\' not found\./ =~ s }
-      log = log.reject {|s| /WARN  the request refers nondisclosure name/ =~ s }
-      assert_equal([], log)
-    }
-    TestWEBrick.start_httpserver(config, log_tester) do |server, addr, port, log|
+    TestWEBrick.start_httpserver(config) do |server, addr, port, log|
       http = Net::HTTP.new(addr, port)
       if windows?
-        root = config[:DocumentRoot].tr("/", "\\")
-        fname = IO.popen(%W[dir /x #{root}\\webrick_long_filename.cgi], &:read)
-        fname.sub!(/\A.*$^$.*$^$/m, '')
-        if fname
-          fname = fname[/\s(w.+?cgi)\s/i, 1]
-          fname.downcase!
+        fname = nil
+        Dir.chdir(config[:DocumentRoot]) do
+          fname = IO.popen("dir /x webrick_long_filename.cgi", "r").read.match(/\s(w.+?cgi)\s/i)[1].downcase
         end
       else
         fname = "webric~1.cgi"
@@ -286,8 +244,6 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
   end
 
   def test_script_disclosure
-    return if File.executable?(__FILE__) # skip on strange file system
-
     config = {
       :CGIInterpreter => TestWEBrick::RubyBin,
       :DocumentRoot => File.dirname(__FILE__),
@@ -301,11 +257,7 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
         end
       },
     }
-    log_tester = lambda {|log, access_log|
-      log = log.reject {|s| /ERROR `.*\' not found\./ =~ s }
-      assert_equal([], log)
-    }
-    TestWEBrick.start_httpserver(config, log_tester) do |server, addr, port, log|
+    TestWEBrick.start_httpserver(config) do |server, addr, port, log|
       http = Net::HTTP.new(addr, port)
 
       req = Net::HTTP::Get.new("/webrick.cgi/test")
@@ -314,9 +266,8 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
         assert_equal("/test", res.body, log.call)
       end
 
-      resok = windows?
       response_assertion = Proc.new do |res|
-        if resok
+        if windows?
           assert_equal("200", res.code, log.call)
           assert_equal("/test", res.body, log.call)
         else
@@ -327,25 +278,8 @@ class WEBrick::TestFileHandler < Test::Unit::TestCase
       http.request(req, &response_assertion)
       req = Net::HTTP::Get.new("/webrick.cgi./test")
       http.request(req, &response_assertion)
-      resok &&= File.exist?(__FILE__+"::$DATA")
       req = Net::HTTP::Get.new("/webrick.cgi::$DATA/test")
       http.request(req, &response_assertion)
-    end
-  end
-
-  def test_erbhandler
-    config = { :DocumentRoot => File.dirname(__FILE__) }
-    log_tester = lambda {|log, access_log|
-      log = log.reject {|s| /ERROR `.*\' not found\./ =~ s }
-      assert_equal([], log)
-    }
-    TestWEBrick.start_httpserver(config, log_tester) do |server, addr, port, log|
-      http = Net::HTTP.new(addr, port)
-      req = Net::HTTP::Get.new("/webrick.rhtml")
-      http.request(req) do |res|
-        assert_equal("200", res.code, log.call)
-        assert_match %r!\Areq to http://[^/]+/webrick\.rhtml {}\n!, res.body
-      end
     end
   end
 end

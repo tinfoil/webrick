@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #--
 # accesslog.rb -- Access log handling utilities
 #
@@ -86,7 +85,7 @@ module WEBrick
     # %q:: Request query string
     # %r:: First line of the request
     # %s:: Request status
-    # %t:: Time the request was received
+    # %t:: Time the request was recieved
     # %T:: Time taken to process the request
     # %u:: Remote user from auth
     # %U:: Unparsed URI
@@ -116,10 +115,6 @@ module WEBrick
       params
     end
 
-    ##
-    # Formats +params+ according to +format_string+ which is described in
-    # setup_params.
-
     def format(format_string, params)
       format_string.gsub(/\%(?:\{(.*?)\})?>?([a-zA-Z%])/){
          param, spec = $1, $2
@@ -144,9 +139,6 @@ module WEBrick
          end
       }
     end
-
-    ##
-    # Escapes control characters in +data+
 
     def escape(data)
       if data.tainted?

@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpresponse.rb -- HTTPResponse Class
 #
@@ -10,7 +9,6 @@
 # $IPR: httpresponse.rb,v 1.45 2003/07/11 11:02:25 gotoyuzo Exp $
 
 require 'time'
-require 'uri'
 require 'webrick/httpversion'
 require 'webrick/htmlutils'
 require 'webrick/httputils'
@@ -18,83 +16,25 @@ require 'webrick/httpstatus'
 
 module WEBrick
   ##
-  # An HTTP response.  This is filled in by the service or do_* methods of a
-  # WEBrick HTTP Servlet.
+  # An HTTP response.
 
   class HTTPResponse
-    class InvalidHeader < StandardError
-    end
-
-    ##
-    # HTTP Response version
-
-    attr_reader :http_version
-
-    ##
-    # Response status code (200)
-
-    attr_reader :status
-
-    ##
-    # Response header
-
-    attr_reader :header
-
-    ##
-    # Response cookies
-
+    attr_reader :http_version, :status, :header
     attr_reader :cookies
-
-    ##
-    # Response reason phrase ("OK")
-
     attr_accessor :reason_phrase
 
     ##
-    # Body may be a String or IO-like object that responds to #read and
-    # #readpartial.
+    # Body may be a String or IO subclass.
 
     attr_accessor :body
 
-    ##
-    # Request method for this response
-
-    attr_accessor :request_method
-
-    ##
-    # Request URI for this response
-
-    attr_accessor :request_uri
-
-    ##
-    # Request HTTP version for this response
-
-    attr_accessor :request_http_version
-
-    ##
-    # Filename of the static file in this response.  Only used by the
-    # FileHandler servlet.
-
+    attr_accessor :request_method, :request_uri, :request_http_version
     attr_accessor :filename
-
-    ##
-    # Is this a keep-alive response?
-
     attr_accessor :keep_alive
+    attr_reader :config, :sent_size
 
     ##
-    # Configuration for this response
-
-    attr_reader :config
-
-    ##
-    # Bytes sent in this response
-
-    attr_reader :sent_size
-
-    ##
-    # Creates a new HTTP response object.  WEBrick::Config::HTTP is the
-    # default configuration.
+    # Creates a new HTTP response object
 
     def initialize(config)
       @config = config
@@ -175,7 +115,7 @@ module WEBrick
     end
 
     ##
-    # Iterates over each header in the response
+    # Iterates over each header in the resopnse
 
     def each
       @header.each{|field, value|  yield(field, value) }
@@ -205,7 +145,7 @@ module WEBrick
     ##
     # Sends the response on +socket+
 
-    def send_response(socket) # :nodoc:
+    def send_response(socket)
       begin
         setup_header()
         send_header(socket)
@@ -222,7 +162,7 @@ module WEBrick
     ##
     # Sets up the headers for sending
 
-    def setup_header() # :nodoc:
+    def setup_header()
       @reason_phrase    ||= HTTPStatus::reason_phrase(@status)
       @header['server'] ||= @config[:ServerSoftware]
       @header['date']   ||= Time.now.httpdate
@@ -285,36 +225,28 @@ module WEBrick
     ##
     # Sends the headers on +socket+
 
-    def send_header(socket) # :nodoc:
+    def send_header(socket)
       if @http_version.major > 0
         data = status_line()
         @header.each{|key, value|
           tmp = key.gsub(/\bwww|^te$|\b\w/){ $&.upcase }
-          data << "#{tmp}: #{check_header(value)}" << CRLF
+          data << "#{tmp}: #{value}" << CRLF
         }
         @cookies.each{|cookie|
-          data << "Set-Cookie: " << check_header(cookie.to_s) << CRLF
+          data << "Set-Cookie: " << cookie.to_s << CRLF
         }
         data << CRLF
-        socket.write(data)
+        _write_data(socket, data)
       end
-    rescue InvalidHeader => e
-      @header.clear
-      @cookies.clear
-      set_error e
-      retry
     end
 
     ##
     # Sends the body on +socket+
 
-    def send_body(socket) # :nodoc:
-      if @body.respond_to? :readpartial then
-        send_body_io(socket)
-      elsif @body.respond_to?(:call) then
-        send_body_proc(socket)
-      else
-        send_body_string(socket)
+    def send_body(socket)
+      case @body
+      when IO then send_body_io(socket)
+      else send_body_string(socket)
       end
     end
 
@@ -332,9 +264,8 @@ module WEBrick
     #   res.set_redirect WEBrick::HTTPStatus::TemporaryRedirect
 
     def set_redirect(status, url)
-      url = URI(url).to_s
-      @body = "<HTML><A HREF=\"#{url}\">#{url}</A>.</HTML>\n"
-      @header['location'] = url
+      @body = "<HTML><A HREF=\"#{url.to_s}\">#{url.to_s}</A>.</HTML>\n"
+      @header['location'] = url.to_s
       raise status
     end
 
@@ -363,22 +294,6 @@ module WEBrick
         host, port = @config[:ServerName], @config[:Port]
       end
 
-      error_body(backtrace, ex, host, port)
-    end
-
-    private
-
-    def check_header(header_value)
-      if header_value =~ /\r\n/
-        raise InvalidHeader
-      else
-        header_value
-      end
-    end
-
-    # :stopdoc:
-
-    def error_body(backtrace, ex, host, port)
       @body = ''
       @body << <<-_end_of_html_
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
@@ -408,39 +323,26 @@ module WEBrick
       _end_of_html_
     end
 
+    private
+
     def send_body_io(socket)
       begin
         if @request_method == "HEAD"
           # do nothing
         elsif chunked?
-          buf  = ''
-          begin
-            @body.readpartial(@buffer_size, buf)
-            size = buf.bytesize
-            data = "#{size.to_s(16)}#{CRLF}#{buf}#{CRLF}"
-            socket.write(data)
-            data.clear
-            @sent_size += size
-          rescue EOFError
-            break
-          end while true
-          buf.clear
-          socket.write("0#{CRLF}#{CRLF}")
+          while buf = @body.read(@buffer_size)
+            next if buf.empty?
+            data = ""
+            data << format("%x", buf.bytesize) << CRLF
+            data << buf << CRLF
+            _write_data(socket, data)
+            @sent_size += buf.bytesize
+          end
+          _write_data(socket, "0#{CRLF}#{CRLF}")
         else
-          if %r{\Abytes (\d+)-(\d+)/\d+\z} =~ @header['content-range']
-            offset = $1.to_i
-            size = $2.to_i - offset + 1
-          else
-            offset = nil
-            size = @header['content-length']
-            size = size.to_i if size
-          end
-          begin
-            @sent_size = IO.copy_stream(@body, socket, size, offset)
-          rescue NotImplementedError
-            @body.seek(offset, IO::SEEK_SET)
-            @sent_size = IO.copy_stream(@body, socket, size)
-          end
+          size = @header['content-length'].to_i
+          _send_file(socket, @body, 0, size)
+          @sent_size = size
         end
       ensure
         @body.close
@@ -454,65 +356,44 @@ module WEBrick
         body ? @body.bytesize : 0
         while buf = @body[@sent_size, @buffer_size]
           break if buf.empty?
-          size = buf.bytesize
-          data = "#{size.to_s(16)}#{CRLF}#{buf}#{CRLF}"
-          buf.clear
-          socket.write(data)
-          @sent_size += size
+          data = ""
+          data << format("%x", buf.bytesize) << CRLF
+          data << buf << CRLF
+          _write_data(socket, data)
+          @sent_size += buf.bytesize
         end
-        socket.write("0#{CRLF}#{CRLF}")
+        _write_data(socket, "0#{CRLF}#{CRLF}")
       else
         if @body && @body.bytesize > 0
-          socket.write(@body)
+          _write_data(socket, @body)
           @sent_size = @body.bytesize
         end
       end
     end
 
-    def send_body_proc(socket)
-      if @request_method == "HEAD"
-        # do nothing
-      elsif chunked?
-        @body.call(ChunkedWrapper.new(socket, self))
-        socket.write("0#{CRLF}#{CRLF}")
+    def _send_file(output, input, offset, size)
+      while offset > 0
+        sz = @buffer_size < size ? @buffer_size : size
+        buf = input.read(sz)
+        offset -= buf.bytesize
+      end
+
+      if size == 0
+        while buf = input.read(@buffer_size)
+          _write_data(output, buf)
+        end
       else
-        size = @header['content-length'].to_i
-        @body.call(socket)
-        @sent_size = size
+        while size > 0
+          sz = @buffer_size < size ? @buffer_size : size
+          buf = input.read(sz)
+          _write_data(output, buf)
+          size -= buf.bytesize
+        end
       end
     end
 
-    class ChunkedWrapper
-      def initialize(socket, resp)
-        @socket = socket
-        @resp = resp
-      end
-
-      def write(buf)
-        return 0 if buf.empty?
-        socket = @socket
-        @resp.instance_eval {
-          size = buf.bytesize
-          data = "#{size.to_s(16)}#{CRLF}#{buf}#{CRLF}"
-          socket.write(data)
-          data.clear
-          @sent_size += size
-          size
-        }
-      end
-
-      def <<(*buf)
-        write(buf)
-        self
-      end
-    end
-
-    # preserved for compatibility with some 3rd-party handlers
     def _write_data(socket, data)
       socket << data
     end
-
-    # :startdoc:
   end
-
 end

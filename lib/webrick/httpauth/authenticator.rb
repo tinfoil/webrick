@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #--
 # httpauth/authenticator.rb -- Authenticator mix-in module.
 #
@@ -17,10 +16,10 @@ module WEBrick
 
     module Authenticator
 
-      RequestField      = "Authorization" # :nodoc:
-      ResponseField     = "WWW-Authenticate" # :nodoc:
-      ResponseInfoField = "Authentication-Info" # :nodoc:
-      AuthException     = HTTPStatus::Unauthorized # :nodoc:
+      RequestField      = "Authorization"
+      ResponseField     = "WWW-Authenticate"
+      ResponseInfoField = "Authentication-Info"
+      AuthException     = HTTPStatus::Unauthorized
 
       ##
       # Method of authentication, must be overridden by the including class
@@ -43,8 +42,6 @@ module WEBrick
       attr_reader :logger
 
       private
-
-      # :stopdoc:
 
       ##
       # Initializes the authenticator from +config+
@@ -99,8 +96,6 @@ module WEBrick
           log(:info, fmt, *args)
         end
       end
-
-      # :startdoc:
     end
 
     ##
@@ -108,10 +103,10 @@ module WEBrick
     # authentication schemes for proxies.
 
     module ProxyAuthenticator
-      RequestField  = "Proxy-Authorization" # :nodoc:
-      ResponseField = "Proxy-Authenticate" # :nodoc:
-      InfoField     = "Proxy-Authentication-Info" # :nodoc:
-      AuthException = HTTPStatus::ProxyAuthenticationRequired # :nodoc:
+      RequestField  = "Proxy-Authorization"
+      ResponseField = "Proxy-Authenticate"
+      InfoField     = "Proxy-Authentication-Info"
+      AuthException = HTTPStatus::ProxyAuthenticationRequired
     end
   end
 end

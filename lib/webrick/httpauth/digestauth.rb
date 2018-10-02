@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # httpauth/digestauth.rb -- HTTP digest access authentication
 #
@@ -46,22 +45,9 @@ module WEBrick
     class DigestAuth
       include Authenticator
 
-      AuthScheme = "Digest" # :nodoc:
-
-      ##
-      # Struct containing the opaque portion of the digest authentication
-
-      OpaqueInfo = Struct.new(:time, :nonce, :nc) # :nodoc:
-
-      ##
-      # Digest authentication algorithm
-
-      attr_reader :algorithm
-
-      ##
-      # Quality of protection.  RFC 2617 defines "auth" and "auth-int"
-
-      attr_reader :qop
+      AuthScheme = "Digest"
+      OpaqueInfo = Struct.new(:time, :nonce, :nc)
+      attr_reader :algorithm, :qop
 
       ##
       # Used by UserDB to create a digest password entry
@@ -111,7 +97,7 @@ module WEBrick
         @instance_key = hexdigest(self.__id__, Time.now.to_i, Process.pid)
         @opaques = {}
         @last_nonce_expire = Time.now
-        @mutex = Thread::Mutex.new
+        @mutex = Mutex.new
       end
 
       ##
@@ -129,7 +115,8 @@ module WEBrick
       end
 
       ##
-      # Returns a challenge response which asks for authentication information
+      # Returns a challenge response which asks for for authentication
+      # information
 
       def challenge(req, res, stale=false)
         nonce = generate_next_nonce(req)
@@ -154,8 +141,6 @@ module WEBrick
       end
 
       private
-
-      # :stopdoc:
 
       MustParams = ['username','realm','nonce','uri','response']
       MustParamsAuth = ['cnonce','nc']
@@ -204,7 +189,7 @@ module WEBrick
 
         password = @userdb.get_passwd(@realm, auth_req['username'], @reload_db)
         unless password
-          error('%s: the user is not allowed.', auth_req['username'])
+          error('%s: the user is not allowd.', auth_req['username'])
           return false
         end
 
@@ -235,11 +220,9 @@ module WEBrick
           ha2 = hexdigest(req.request_method, auth_req['uri'])
           ha2_res = hexdigest("", auth_req['uri'])
         elsif auth_req['qop'] == "auth-int"
-          body_digest = @h.new
-          req.body { |chunk| body_digest.update(chunk) }
-          body_digest = body_digest.hexdigest
-          ha2 = hexdigest(req.request_method, auth_req['uri'], body_digest)
-          ha2_res = hexdigest("", auth_req['uri'], body_digest)
+          ha2 = hexdigest(req.request_method, auth_req['uri'],
+                          hexdigest(req.body))
+          ha2_res = hexdigest("", auth_req['uri'], hexdigest(res.body))
         end
 
         if auth_req['qop'] == "auth" || auth_req['qop'] == "auth-int"
@@ -314,7 +297,7 @@ module WEBrick
       def generate_next_nonce(req)
         now = "%012d" % req.request_time.to_i
         pk  = hexdigest(now, @instance_key)[0,32]
-        nonce = [now + ":" + pk].pack("m0") # it has 60 length of chars.
+        nonce = [now + ":" + pk].pack("m*").chop # it has 60 length of chars.
         nonce
       end
 
@@ -392,7 +375,6 @@ module WEBrick
         @h.hexdigest(args.join(":"))
       end
 
-      # :startdoc:
     end
 
     ##
@@ -402,7 +384,7 @@ module WEBrick
       include ProxyAuthenticator
 
       private
-      def check_uri(req, auth_req) # :nodoc:
+      def check_uri(req, auth_req)
         return true
       end
     end

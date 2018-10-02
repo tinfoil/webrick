@@ -1,4 +1,3 @@
-# frozen_string_literal: false
 #
 # cgi.rb -- Yet another CGI library
 #
@@ -14,44 +13,10 @@ require "webrick/config"
 require "stringio"
 
 module WEBrick
-
-  # A CGI library using WEBrick requests and responses.
-  #
-  # Example:
-  #
-  #   class MyCGI < WEBrick::CGI
-  #     def do_GET req, res
-  #       res.body = 'it worked!'
-  #       res.status = 200
-  #     end
-  #   end
-  #
-  #   MyCGI.new.start
-
   class CGI
-
-    # The CGI error exception class
-
     CGIError = Class.new(StandardError)
 
-    ##
-    # The CGI configuration.  This is based on WEBrick::Config::HTTP
-
-    attr_reader :config
-
-    ##
-    # The CGI logger
-
-    attr_reader :logger
-
-    ##
-    # Creates a new CGI interface.
-    #
-    # The first argument in +args+ is a configuration hash which would update
-    # WEBrick::Config::HTTP.
-    #
-    # Any remaining arguments are stored in the <code>@options</code> instance
-    # variable for use by a subclass.
+    attr_reader :config, :logger
 
     def initialize(*args)
       if defined?(MOD_RUBY)
@@ -76,16 +41,9 @@ module WEBrick
       @options = args
     end
 
-    ##
-    # Reads +key+ from the configuration
-
     def [](key)
       @config[key]
     end
-
-    ##
-    # Starts the CGI process with the given environment +env+ and standard
-    # input and output +stdin+ and +stdout+.
 
     def start(env=ENV, stdin=$stdin, stdout=$stdout)
       sock = WEBrick::CGI::Socket.new(@config, env, stdin, stdout)
@@ -150,10 +108,6 @@ module WEBrick
       end
     end
 
-    ##
-    # Services the request +req+ which will fill in the response +res+.  See
-    # WEBrick::HTTPServlet::AbstractServlet#service for details.
-
     def service(req, res)
       method_name = "do_" + req.request_method.gsub(/-/, "_")
       if respond_to?(method_name)
@@ -164,10 +118,7 @@ module WEBrick
       end
     end
 
-    ##
-    # Provides HTTP socket emulation from the CGI environment
-
-    class Socket # :nodoc:
+    class Socket
       include Enumerable
 
       private
@@ -263,10 +214,6 @@ module WEBrick
 
       def <<(data)
         @out_port << data
-      end
-
-      def write(data)
-        @out_port.write(data)
       end
 
       def cert
