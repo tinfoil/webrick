@@ -58,6 +58,11 @@ module WEBrick
 
     attr_accessor :max_age
 
+    ##
+    # Is this an HTTPOnly cookie?
+
+    attr_accessor :httponly
+
     #attr_accessor :comment_url, :discard, :port
 
     ##
@@ -148,13 +153,14 @@ module WEBrick
           value = HTTPUtils.dequote(value.strip)
         end
         case key.downcase
-        when "domain"  then cookie.domain  = value
-        when "path"    then cookie.path    = value
-        when "expires" then cookie.expires = value
-        when "max-age" then cookie.max_age = Integer(value)
-        when "comment" then cookie.comment = value
-        when "version" then cookie.version = Integer(value)
-        when "secure"  then cookie.secure = true
+        when "domain"   then cookie.domain  = value
+        when "path"     then cookie.path    = value
+        when "expires"  then cookie.expires = value
+        when "max-age"  then cookie.max_age = Integer(value)
+        when "comment"  then cookie.comment = value
+        when "version"  then cookie.version = Integer(value)
+        when "secure"   then cookie.secure = true
+        when "httponly" then cookie.httponly = true
         end
       }
       return cookie
