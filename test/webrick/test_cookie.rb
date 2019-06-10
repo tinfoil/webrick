@@ -109,6 +109,14 @@ class TestWEBrickCookie < Test::Unit::TestCase
     assert_equal(true, cookie.httponly)
   end
 
+  def test_parse_set_cookie_bad_segment
+    data = 'Customer="WILE_E_COYOTE"; ;path="/acme"' # empty segement
+    cookie = WEBrick::Cookie.parse_set_cookie(data)
+    assert_equal("Customer", cookie.name)
+    assert_equal("WILE_E_COYOTE", cookie.value)
+    assert_equal("/acme", cookie.path)
+  end
+
   def test_parse_set_cookies
     data = %(Shipping="FedEx"; Version="1"; Path="/acme"; Secure)
     data << %(, CUSTOMER=WILE_E_COYOTE; path=/; expires=Wednesday, 09-Nov-99 23:12:40 GMT; path=/; Secure)

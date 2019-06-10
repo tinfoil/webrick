@@ -149,6 +149,7 @@ module WEBrick
       cookie_elem.each{|pair|
         pair.strip!
         key, value = pair.split(/=/, 2)
+        next if key.nil?
         if value
           value = HTTPUtils.dequote(value.strip)
         end
