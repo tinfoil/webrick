@@ -117,7 +117,7 @@ module WEBrick
       @status = HTTPStatus::RC_OK
       @reason_phrase = nil
       @http_version = HTTPVersion::convert(@config[:HTTPVersion])
-      @body = ''
+      @body = +''
       @keep_alive = true
       @cookies = []
       @request_method = nil
@@ -261,7 +261,7 @@ module WEBrick
       # Determine the message length (RFC2616 -- 4.4 Message Length)
       if @status == 304 || @status == 204 || HTTPStatus::info?(@status)
         @header.delete('content-length')
-        @body = ""
+        @body = +""
       elsif chunked?
         @header["transfer-encoding"] = "chunked"
         @header.delete('content-length')
