@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # httputils.rb -- HTTPUtils Module
 #
@@ -72,6 +72,7 @@ module WEBrick
       "json"  => "application/json",
       "lha"   => "application/octet-stream",
       "lzh"   => "application/octet-stream",
+      "mjs"   => "application/javascript",
       "mov"   => "video/quicktime",
       "mpe"   => "video/mpeg",
       "mpeg"  => "video/mpeg",
@@ -162,10 +163,7 @@ module WEBrick
         end
       }
       header.each{|key, values|
-        values.each{|value|
-          value.strip!
-          value.gsub!(/\s+/, " ")
-        }
+        values.each(&:strip!)
       }
       header
     end
@@ -233,7 +231,7 @@ module WEBrick
     # Quotes and escapes quotes in +str+
 
     def quote(str)
-      '"' << str.gsub(/[\\\"]/o, "\\\1") << '"'
+      +'"' << str.gsub(/[\\\"]/o, "\\\1") << '"'
     end
     module_function :quote
 
@@ -497,7 +495,7 @@ module WEBrick
     # Escapes path +str+
 
     def escape_path(str)
-      result = ""
+      result = +""
       str.scan(%r{/([^/]*)}).each{|i|
         result << "/" << _escape(i[0], UNESCAPED_PCHAR)
       }

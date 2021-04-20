@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #--
 # httpauth/authenticator.rb -- Authenticator mix-in module.
 #
@@ -85,7 +85,7 @@ module WEBrick
       def log(meth, fmt, *args)
         msg = format("%s %s: ", @auth_scheme, @realm)
         msg << fmt % args
-        @logger.send(meth, msg)
+        @logger.__send__(meth, msg)
       end
 
       def error(fmt, *args)
